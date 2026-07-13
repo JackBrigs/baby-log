@@ -151,8 +151,6 @@ def calculate_weekly_stats(events: list[dict[str, Any]]) -> str:
 
     total_h = total_seconds // 3600
     total_m = (total_seconds % 3600) // 60
-    lines.append(
-        f"📊 За период: {total_h}ч {total_m}мин сна, {total_feedings} кормлений."
-    )
+    lines.append(f"📊 За период: {total_h}ч {total_m}мин сна, {total_feedings} кормлений.")
 
     return "\n".join(lines)

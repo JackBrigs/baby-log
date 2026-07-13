@@ -48,9 +48,7 @@ def build_application(settings: Settings) -> Application:
     application.add_handler(CommandHandler("help", handle_help))
 
     # Stats menu — triggered by "Статистика" button
-    async def _stats_menu(
-        update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
+    async def _stats_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Show stats menu with today/week options."""
         keyboard = [
             [
@@ -60,9 +58,7 @@ def build_application(settings: Settings) -> Application:
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         if update.message:
-            await update.message.reply_text(
-                "Выберите период:", reply_markup=reply_markup
-            )
+            await update.message.reply_text("Выберите период:", reply_markup=reply_markup)
 
     application.add_handler(
         MessageHandler(
@@ -80,25 +76,19 @@ def build_application(settings: Settings) -> Application:
     )
     application.add_handler(
         CallbackQueryHandler(
-            lambda u, c: handle_stats_week(
-                u, c, storage, settings.baby_log_timezone
-            ),
+            lambda u, c: handle_stats_week(u, c, storage, settings.baby_log_timezone),
             pattern=_STATS_WEEK,
         )
     )
 
     # Catch-all callback handler for everything else
-    async def _catchall_callback(
-        update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
+    async def _catchall_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Route all remaining callback queries."""
         query = update.callback_query
         if not query:
             return
         logger.info("Callback received: data=%r, chat=%s", query.data, query.message.chat.id)
-        await handle_confirm_callback(
-            update, context, storage, settings.baby_log_timezone
-        )
+        await handle_confirm_callback(update, context, storage, settings.baby_log_timezone)
 
     application.add_handler(CallbackQueryHandler(_catchall_callback))
 
@@ -106,9 +96,7 @@ def build_application(settings: Settings) -> Application:
     application.add_handler(
         MessageHandler(
             filters.TEXT & ~filters.COMMAND & ~filters.Regex(r"^Статистика$"),
-            lambda u, c: handle_message(
-                u, c, storage, settings.baby_log_timezone
-            ),
+            lambda u, c: handle_message(u, c, storage, settings.baby_log_timezone),
         )
     )
 
@@ -121,13 +109,9 @@ def build_application(settings: Settings) -> Application:
     return application
 
 
-async def _on_start(
-    update: object, context: ContextTypes.DEFAULT_TYPE
-) -> None:
+async def _on_start(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /start command."""
-    keyboard = ReplyKeyboardMarkup(
-        [[KeyboardButton("Статистика")]], resize_keyboard=True
-    )
+    keyboard = ReplyKeyboardMarkup([[KeyboardButton("Статистика")]], resize_keyboard=True)
     if isinstance(update, Update) and update.message:
         await update.message.reply_text(
             "Привет! Я помогу записывать сон и кормления ребёнка.\n\n"

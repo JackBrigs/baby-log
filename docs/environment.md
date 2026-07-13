@@ -24,4 +24,4 @@
 
 - **Purpose:** Google Spreadsheet ID for storing events.
 - **Required:** Yes.
-- **Safe example:** `1Wim-dGRwrJs9CI5gAwCgmvq1EnlZE-LnsXP743g-Ago`
+- **Safe example:** `1abc123...` (extract from spreadsheet URL)

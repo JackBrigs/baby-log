@@ -37,16 +37,12 @@ for _etype, (nom, gen, start_words, end_words) in LEXICON.items():
         "standalone_start": re.compile(rf"^(?:{sw})\s*$", re.IGNORECASE),
         "standalone_end": re.compile(rf"^(?:{ew})\s*$", re.IGNORECASE),
         "from": re.compile(rf"^{gen}\s+с\s+{_TIME}\s*$", re.IGNORECASE),
-        "from_to": re.compile(
-            rf"^{gen}\s+с\s+{_TIME}\s+до\s+{_TIME}\s*$", re.IGNORECASE
-        ),
+        "from_to": re.compile(rf"^{gen}\s+с\s+{_TIME}\s+до\s+{_TIME}\s*$", re.IGNORECASE),
         "until": re.compile(
             rf"^{gen}\s+(?:до)\s+(?:в\s+)?{_TIME}\s*$",
             re.IGNORECASE,
         ),
-        "ended_at": re.compile(
-            rf"^{nom}\s+\w+\s+в\s+{_TIME}\s*$", re.IGNORECASE
-        ),
+        "ended_at": re.compile(rf"^{nom}\s+\w+\s+в\s+{_TIME}\s*$", re.IGNORECASE),
     }
 
 
@@ -116,9 +112,7 @@ def parse_message(
 
     # Try each event type
     for etype, pats in PATTERNS.items():
-        result = _try_type(
-            etype, pats, stripped, now, chat_id, user_id, timezone
-        )
+        result = _try_type(etype, pats, stripped, now, chat_id, user_id, timezone)
         if result is not None:
             return result
 

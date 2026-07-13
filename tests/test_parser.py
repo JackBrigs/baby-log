@@ -50,9 +50,7 @@ class TestSleep:
         assert result.event.timestamp.minute == 30
 
     def test_son_interval(self):
-        result = parse_message(
-            "сон с 12:30 до 13:50", CHAT_ID, USER_ID, TZ, now=_now()
-        )
+        result = parse_message("сон с 12:30 до 13:50", CHAT_ID, USER_ID, TZ, now=_now())
         assert isinstance(result, CompleteEvent)
         assert isinstance(result.event, IntervalEvent)
         assert result.event.start_time.hour == 12
@@ -65,9 +63,7 @@ class TestSleep:
         assert result.end_time.minute == 55
 
     def test_son_ended_at(self):
-        result = parse_message(
-            "сон закончился в 13:55", CHAT_ID, USER_ID, TZ, now=_now()
-        )
+        result = parse_message("сон закончился в 13:55", CHAT_ID, USER_ID, TZ, now=_now())
         assert isinstance(result, CloseRequest)
         assert result.end_time.hour == 13
 
@@ -78,9 +74,7 @@ class TestSleep:
 
     def test_interval_end_before_start(self):
         with pytest.raises(ParseError):
-            parse_message(
-                "сон с 14:00 до 13:00", CHAT_ID, USER_ID, TZ, now=_now()
-            )
+            parse_message("сон с 14:00 до 13:00", CHAT_ID, USER_ID, TZ, now=_now())
 
     def test_case_insensitive(self):
         for text in ("Сон", "СОН", "Заснул"):
@@ -123,9 +117,7 @@ class TestWalk:
         assert result.event.event_type == EventType.WALK
 
     def test_progulka_interval(self):
-        result = parse_message(
-            "прогулка с 16:00 до 17:30", CHAT_ID, USER_ID, TZ, now=_now()
-        )
+        result = parse_message("прогулка с 16:00 до 17:30", CHAT_ID, USER_ID, TZ, now=_now())
         assert isinstance(result, CompleteEvent)
         assert isinstance(result.event, IntervalEvent)
 
@@ -140,9 +132,7 @@ class TestWalk:
 
 class TestInvalidInput:
     def test_unknown_command(self):
-        result = parse_message(
-            "какой-то текст", CHAT_ID, USER_ID, TZ, now=_now()
-        )
+        result = parse_message("какой-то текст", CHAT_ID, USER_ID, TZ, now=_now())
         assert isinstance(result, HelpRequest)
 
     def test_empty_string(self):

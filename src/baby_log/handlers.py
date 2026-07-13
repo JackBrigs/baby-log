@@ -13,7 +13,6 @@ from telegram.ext import ContextTypes
 from baby_log.events import (
     EVENT_LABELS,
     Event,
-    EventType,
     IntervalEvent,
     tracker,
 )
@@ -64,9 +63,7 @@ def _reply_complete(event: Event | IntervalEvent) -> str:
     """Format reply for a complete event."""
     label = EVENT_LABELS.get(event.event_type, event.event_type.value)
     if isinstance(event, IntervalEvent):
-        return (
-            f"Принято! {label} с {_fmt(event.start_time)} до {_fmt(event.end_time)}."
-        )
+        return f"Принято! {label} с {_fmt(event.start_time)} до {_fmt(event.end_time)}."
     return f"Принято! {label} в {_fmt(event.timestamp)}."
 
 
@@ -134,8 +131,7 @@ async def handle_message(
 
         label = EVENT_LABELS[result.event_type]
         confirm_text = (
-            f"Подтвердите {label}:\n"
-            f"  {_fmt(start_ev.timestamp)} – {_fmt(result.end_time)}"
+            f"Подтвердите {label}:\n  {_fmt(start_ev.timestamp)} – {_fmt(result.end_time)}"
         )
         keyboard = [
             [

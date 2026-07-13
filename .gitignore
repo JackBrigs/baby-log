@@ -29,6 +29,8 @@ dist/
 .env.*
 !.env.example
 credentials/*
+!credentials/.gitkeep
+
 # IDE
 .idea/
 .vscode/
