@@ -28,7 +28,7 @@ dist/
 .env
 .env.*
 !.env.example
-
+credentials/*
 # IDE
 .idea/
 .vscode/
