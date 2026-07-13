@@ -84,6 +84,14 @@ Press the `Статистика` button in the keyboard, then choose:
 - **Сегодня** — statistics for today
 - **За неделю** — statistics for the last 7 days
 
+## Docker
+
+```bash
+docker compose up --build -d
+```
+
+The `.env` file and `credentials/` directory are mounted from the host.
+
 ## Development
 
 ```bash
