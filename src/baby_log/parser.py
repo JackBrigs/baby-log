@@ -73,15 +73,28 @@ def _at_time(now: datetime, hour: int, minute: int) -> datetime:
 
 def get_help_text() -> str:
     """Return user-facing help text in Russian."""
-    lines = ["Доступные команды:"]
-    for etype, (_nom, gen, starts, _ends) in LEXICON.items():
-        label = EVENT_LABELS[etype]
-        lines.append(f"\n{label}:")
-        lines.append(f"  • {list(starts)[0]} — начать сейчас")
-        lines.append(f"  • {gen} с 12:30 — начать в указанное время")
-        lines.append(f"  • {gen} с 12:30 до 13:55 — полный интервал")
-        lines.append(f"  • {gen} до 13:55 — завершить незавершённый")
-    return "\n".join(lines)
+    return (
+        "📋 Команды\n\n"
+        "Регистр не важен.\n\n"
+        "😴 Сон\n"
+        "заснул\n"
+        "сон с 12:30\n"
+        "сон до 13:55\n"
+        "сон с 12:30 до 13:55\n"
+        "проснулся\n\n"
+        "🍼 Кормление\n"
+        "поел\n"
+        "еда с 12:30\n"
+        "еда до 13:55\n"
+        "еда с 12:30 до 13:55\n"
+        "наелся\n\n"
+        "🚶 Прогулка\n"
+        "прогулка\n"
+        "прогулка с 12:30\n"
+        "прогулка до 13:55\n"
+        "прогулка с 12:30 до 13:55\n"
+        "вернулся"
+    )
 
 
 # ── Main parser ─────────────────────────────────────────────
@@ -106,7 +119,7 @@ def parse_message(
         import zoneinfo
 
         tz = zoneinfo.ZoneInfo(timezone)
-        now = datetime.now(tz)
+        now = datetime.now(tz).replace(second=0, microsecond=0)
 
     stripped = text.strip()
 

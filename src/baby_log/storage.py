@@ -59,7 +59,7 @@ class SheetStorage:
                     "addSheet": {
                         "properties": {
                             "title": sheet_name,
-                            "gridProperties": {"rowCount": 1000, "columnCount": 7},
+                            "gridProperties": {"rowCount": 1000, "columnCount": 4},
                         }
                     }
                 }
@@ -73,7 +73,7 @@ class SheetStorage:
         # Write header row
         self._service.spreadsheets().values().update(
             spreadsheetId=self._spreadsheet_id,
-            range=f"{sheet_name}!A1:G1",
+            range=f"{sheet_name}!A1:D1",
             valueInputOption="RAW",
             body={"values": [_SHEET_HEADER]},
         ).execute()
@@ -85,8 +85,8 @@ class SheetStorage:
     def append_event(
         self,
         event: Event | IntervalEvent,
-    ) -> None:
-        """Append a single event row to the daily sheet."""
+    ) -> int:
+        """Append a single event row to the daily sheet. Returns the 1-based row number."""
         if isinstance(event, IntervalEvent):
             day = event.start_time.date()
         else:
@@ -96,21 +96,61 @@ class SheetStorage:
         row = event_to_sheet_row(event)
         sheet_name = self._sheet_name(day)
 
-        self._service.spreadsheets().values().append(
+        resp = (
+            self._service.spreadsheets()
+            .values()
+            .append(
+                spreadsheetId=self._spreadsheet_id,
+                range=f"{sheet_name}!A:D",
+                valueInputOption="RAW",
+                body={"values": [row]},
+            )
+            .execute()
+        )
+
+        row_number: int = 0
+        # updatedRows is 1, but we need the actual row index
+        # The update range tells us the row
+        update_range = resp.get("updates", {}).get("updatedRange", "")
+        if update_range:
+            # range looks like "2026-07-13!A10:D10"
+            parts = update_range.split("!")
+            if len(parts) == 2:
+                range_part = parts[1]
+                # extract row number from A10:D10
+                import re
+
+                m = re.search(r"(\d+)", range_part)
+                if m:
+                    row_number = int(m.group(1))
+
+        logger.info("Appended event to %s row %d: %s", sheet_name, row_number, row[0])
+        return row_number
+
+    def update_row(
+        self,
+        day: date,
+        row_number: int,
+        event: Event | IntervalEvent,
+    ) -> None:
+        """Update an existing row in the daily sheet with new event data."""
+        row = event_to_sheet_row(event)
+        sheet_name = self._sheet_name(day)
+
+        self._service.spreadsheets().values().update(
             spreadsheetId=self._spreadsheet_id,
-            range=f"{sheet_name}!A:G",
+            range=f"{sheet_name}!A{row_number}:D{row_number}",
             valueInputOption="RAW",
             body={"values": [row]},
         ).execute()
 
-        logger.info("Appended event to %s: %s", sheet_name, row[1])
+        logger.info("Updated row %d in %s: %s", row_number, sheet_name, row[0])
 
     def read_events(
         self,
         day: date,
-        chat_id: int | None = None,
     ) -> list[dict[str, Any]]:
-        """Read all events from a daily sheet, optionally filtered by chat_id."""
+        """Read all events from a daily sheet."""
         sheet_name = self._sheet_name(day)
         try:
             result = (
@@ -118,7 +158,7 @@ class SheetStorage:
                 .values()
                 .get(
                     spreadsheetId=self._spreadsheet_id,
-                    range=f"{sheet_name}!A:G",
+                    range=f"{sheet_name}!A:D",
                 )
                 .execute()
             )
@@ -130,20 +170,11 @@ class SheetStorage:
             return []
 
         header = rows[0]
-        # Normalize header — handle both new (Russian) and legacy (English) headers
-        normalized: dict[str, str] = {}
-        for col in header:
-            normalized[col] = col
-
         events: list[dict[str, Any]] = []
         for row in rows[1:]:
             if not row:
                 continue
             event_dict = dict(zip(header, row, strict=False))
-            if chat_id is not None:
-                stored_chat = int(event_dict.get("Чат", event_dict.get("chat_id", 0)) or 0)
-                if stored_chat != chat_id:
-                    continue
             events.append(event_dict)
         return events
 
@@ -151,12 +182,11 @@ class SheetStorage:
         self,
         start_day: date,
         end_day: date,
-        chat_id: int | None = None,
     ) -> list[dict[str, Any]]:
         """Read events from multiple daily sheets between start_day and end_day."""
         events: list[dict[str, Any]] = []
         current = start_day
         while current <= end_day:
-            events.extend(self.read_events(current, chat_id))
+            events.extend(self.read_events(current))
             current += timedelta(days=1)
         return events

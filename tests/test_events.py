@@ -40,10 +40,11 @@ class TestEventToSheetRow:
             raw_text="сон",
         )
         row = event_to_sheet_row(event)
-        assert len(row) == 7
-        assert "10.07.2024 12:30" in row[0]
-        assert row[1] == "Сон"
-        assert row[3] == "123"
+        assert len(row) == 4
+        assert row[0] == "Сон"
+        assert "10.07.2024 12:30" in row[1]
+        assert row[2] == ""  # no end time
+        assert row[3] == ""  # no duration
 
     def test_interval_event(self):
         event = IntervalEvent(
@@ -55,9 +56,9 @@ class TestEventToSheetRow:
             raw_text="сон с 12:30 до 13:50",
         )
         row = event_to_sheet_row(event)
-        assert row[1] == "Сон"
-        assert "до" in row[2]
-        assert "13:50" in row[2]
+        assert row[0] == "Сон"
+        assert "13:50" in row[2]  # end time
+        assert "1ч 20мин" in row[3]  # duration
 
     def test_feeding(self):
         event = Event(
@@ -68,17 +69,5 @@ class TestEventToSheetRow:
             raw_text="поел",
         )
         row = event_to_sheet_row(event)
-        assert row[1] == "Кормление"
-        assert "08:15" in row[0]
-
-    def test_none_user_id(self):
-        event = Event(
-            event_type=EventType.SLEEP,
-            timestamp=datetime(2024, 7, 10, 12, 0, tzinfo=_tz()),
-            timezone="Asia/Nicosia",
-            chat_id=100,
-            user_id=None,
-            raw_text="сон",
-        )
-        row = event_to_sheet_row(event)
-        assert row[4] == ""
+        assert row[0] == "Кормление"
+        assert "08:15" in row[1]

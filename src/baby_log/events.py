@@ -53,25 +53,10 @@ class IntervalEvent(BaseModel):
 # ── Sheet row conversion ────────────────────────────────────
 
 _SHEET_HEADER = [
-    "Время",
-    "Тип",
-    "Детали",
-    "Чат",
-    "Пользователь",
-    "Сообщение",
-    "Создано",
-]
-
-# Keep old header names for backward compatibility when reading
-_LEGACY_HEADER = [
-    "timestamp",
-    "event_type",
-    "detail",
-    "timezone",
-    "chat_id",
-    "user_id",
-    "raw_text",
-    "created_at",
+    "тип активности",
+    "Дата и время начала",
+    "дата и время окончания",
+    "общее время",
 ]
 
 
@@ -80,24 +65,39 @@ def _fmt_dt(dt: datetime) -> str:
     return dt.strftime("%d.%m.%Y %H:%M")
 
 
+def _fmt_duration(seconds: int) -> str:
+    """Format seconds as human-readable duration string."""
+    if seconds == 0:
+        return "0мин"
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    parts = []
+    if hours:
+        parts.append(f"{hours}ч")
+    if minutes:
+        parts.append(f"{minutes}мин")
+    return " ".join(parts)
+
+
 def event_to_sheet_row(
     event: Event | IntervalEvent,
 ) -> list[str]:
     """Convert an event model to a flat list for a Google Sheets row."""
     label = EVENT_LABELS.get(event.event_type, event.event_type.value)
-    chat = str(event.chat_id)
-    user = str(event.user_id) if event.user_id else ""
-    raw = event.raw_text
-    created = _fmt_dt(event.created_at)
 
     if isinstance(event, IntervalEvent):
-        time_col = _fmt_dt(event.start_time)
-        details = f"до {_fmt_dt(event.end_time)}"
+        start = _fmt_dt(event.start_time)
+        end = _fmt_dt(event.end_time)
+        start_dt = event.start_time
+        end_dt = event.end_time
+        duration_seconds = int((end_dt - start_dt).total_seconds())
+        duration = _fmt_duration(duration_seconds)
     else:
-        time_col = _fmt_dt(event.timestamp)
-        details = ""
+        start = _fmt_dt(event.timestamp)
+        end = ""
+        duration = ""
 
-    return [time_col, label, details, chat, user, raw, created]
+    return [label, start, end, duration]
 
 
 def sheet_row_to_event_type(row_label: str) -> EventType | None:
@@ -151,23 +151,34 @@ class IncompleteTracker:
     """Track incomplete (open-ended) events per chat for later closure."""
 
     def __init__(self) -> None:
-        self._store: dict[int, list[Event]] = {}
+        self._store: dict[int, list[tuple[Event, int]]] = {}
 
-    def add(self, chat_id: int, event: Event) -> None:
-        """Record an incomplete event for a chat."""
-        self._store.setdefault(chat_id, []).append(event)
+    def add(self, chat_id: int, event: Event, row_number: int = 0) -> None:
+        """Record an incomplete event for a chat.
 
-    def get_oldest(self, chat_id: int, event_type: EventType) -> Event | None:
-        """Return the oldest incomplete event of the given type for a chat."""
-        for ev in self._store.get(chat_id, []):
+        Args:
+            chat_id: Telegram chat identifier.
+            event: The start event.
+            row_number: 1-based row number in the sheet (for later update).
+        """
+        self._store.setdefault(chat_id, []).append((event, row_number))
+
+    def get_oldest(
+        self, chat_id: int, event_type: EventType
+    ) -> tuple[Event, int] | None:
+        """Return the oldest incomplete event of the given type for a chat.
+
+        Returns (event, row_number) or None.
+        """
+        for ev, row_num in self._store.get(chat_id, []):
             if ev.event_type == event_type:
-                return ev
+                return (ev, row_num)
         return None
 
     def remove(self, chat_id: int, event: Event) -> None:
         """Remove a specific incomplete event (after it was closed)."""
         lst = self._store.get(chat_id, [])
-        self._store[chat_id] = [e for e in lst if e is not event]
+        self._store[chat_id] = [(e, r) for e, r in lst if e is not event]
 
     def clear_chat(self, chat_id: int) -> None:
         """Remove all tracked incomplete events for a chat."""

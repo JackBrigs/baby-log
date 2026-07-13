@@ -1,7 +1,7 @@
 """Telegram message and callback handlers."""
 
 import logging
-from datetime import date, timedelta
+from datetime import datetime, timedelta
 
 from telegram import (
     InlineKeyboardButton,
@@ -30,8 +30,8 @@ from baby_log.storage import SheetStorage
 
 logger = logging.getLogger(__name__)
 
-# Pending intervals per chat (persists across requests)
-_pending: dict[int, IntervalEvent] = {}
+# Pending intervals per chat: (interval, row_number)
+_pending: dict[int, tuple[IntervalEvent, int]] = {}
 
 
 def _get_chat_id(update: Update) -> int:
@@ -77,9 +77,14 @@ async def handle_message(
     if not update.message or not update.message.text:
         return
 
-    text = update.message.text
+    text = update.message.text.strip()
     chat_id = _get_chat_id(update)
     user_id = _get_user_id(update)
+
+    # Handle stats text commands
+    if text.lower() == "статистика за неделю":
+        await handle_stats_week_text(update, storage, timezone, chat_id)
+        return
 
     try:
         result = parse_message(text, chat_id, user_id, timezone)
@@ -101,24 +106,24 @@ async def handle_message(
         return
 
     if isinstance(result, IncompleteEvent):
-        tracker.add(chat_id, result.event)
         try:
-            storage.append_event(result.event)
+            row_number = storage.append_event(result.event)
         except Exception as exc:
-            tracker.clear_chat(chat_id)
             await update.message.reply_text(f"Ошибка при сохранении: {exc}")
             return
+        tracker.add(chat_id, result.event, row_number=row_number)
         await update.message.reply_text(_reply_start(result.event))
         return
 
     if isinstance(result, CloseRequest):
-        start_ev = tracker.get_oldest(chat_id, result.event_type)
-        if start_ev is None:
+        oldest = tracker.get_oldest(chat_id, result.event_type)
+        if oldest is None:
             await update.message.reply_text(
                 f"Нет незавершённых записей для {EVENT_LABELS[result.event_type]}."
             )
             return
 
+        start_ev, row_number = oldest
         interval = IntervalEvent(
             event_type=result.event_type,
             start_time=start_ev.timestamp,
@@ -143,8 +148,8 @@ async def handle_message(
             confirm_text,
             reply_markup=InlineKeyboardMarkup(keyboard),
         )
-        _pending[chat_id] = interval
-        logger.info("Sent confirmation for chat %d", chat_id)
+        _pending[chat_id] = (interval, row_number)
+        logger.info("Sent confirmation for chat %d, row %d", chat_id, row_number)
         return
 
 
@@ -172,22 +177,27 @@ async def handle_confirm_callback(
         return
 
     if query.data == "yes":
-        interval = _pending.pop(chat_id, None)
-        if interval is None:
+        pending = _pending.pop(chat_id, None)
+        if pending is None:
             logger.warning("No pending interval for chat %d", chat_id)
             await query.edit_message_text("Ошибка: нет данных для сохранения.")
             return
 
+        interval, row_number = pending
+
         try:
-            storage.append_event(interval)
+            if row_number:
+                storage.update_row(interval.start_time.date(), row_number, interval)
+            else:
+                storage.append_event(interval)
         except Exception as exc:
             logger.error("Failed to save interval: %s", exc)
             await query.edit_message_text(f"Ошибка при сохранении: {exc}")
             return
 
-        start_ev = tracker.get_oldest(chat_id, interval.event_type)
-        if start_ev:
-            tracker.remove(chat_id, start_ev)
+        oldest = tracker.get_oldest(chat_id, interval.event_type)
+        if oldest:
+            tracker.remove(chat_id, oldest[0])
 
         await query.edit_message_text(_reply_complete(interval))
         return
@@ -203,18 +213,18 @@ async def handle_stats_today(
     timezone: str,
 ) -> None:
     """Handle the 'stats today' callback."""
-    chat_id = _get_chat_id(update)
     import zoneinfo
 
     tz = zoneinfo.ZoneInfo(timezone)
-    today = date.today(tz)
-    events = storage.read_events(today, chat_id)
+    today = datetime.now(tz).date()
+    events = storage.read_events(today)
     stats_text = calculate_daily_stats(events)
 
     reply = f"📊 Статистика за {today.strftime('%d.%m.%Y')}:\n\n{stats_text}"
     if update.callback_query:
         await update.callback_query.answer()
-    if update.message:
+        await update.callback_query.message.reply_text(reply)
+    elif update.message:
         await update.message.reply_text(reply)
 
 
@@ -225,13 +235,12 @@ async def handle_stats_week(
     timezone: str,
 ) -> None:
     """Handle the 'stats week' callback."""
-    chat_id = _get_chat_id(update)
     import zoneinfo
 
     tz = zoneinfo.ZoneInfo(timezone)
-    today = date.today(tz)
+    today = datetime.now(tz).date()
     week_ago = today - timedelta(days=6)
-    events = storage.read_events_range(week_ago, today, chat_id)
+    events = storage.read_events_range(week_ago, today)
     stats_text = calculate_weekly_stats(events)
 
     reply = (
@@ -241,6 +250,31 @@ async def handle_stats_week(
     )
     if update.callback_query:
         await update.callback_query.answer()
+        await update.callback_query.message.reply_text(reply)
+    elif update.message:
+        await update.message.reply_text(reply)
+
+
+async def handle_stats_week_text(
+    update: Update,
+    storage: SheetStorage,
+    timezone: str,
+    chat_id: int,
+) -> None:
+    """Handle 'статистика за неделю' text command."""
+    import zoneinfo
+
+    tz = zoneinfo.ZoneInfo(timezone)
+    today = datetime.now(tz).date()
+    week_ago = today - timedelta(days=6)
+    events = storage.read_events_range(week_ago, today)
+    stats_text = calculate_weekly_stats(events)
+
+    reply = (
+        f"📊 Статистика за "
+        f"{week_ago.strftime('%d.%m.%Y')} – {today.strftime('%d.%m.%Y')}:\n\n"
+        f"{stats_text}"
+    )
     if update.message:
         await update.message.reply_text(reply)
 

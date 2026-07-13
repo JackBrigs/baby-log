@@ -5,8 +5,6 @@ import logging
 from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
-    KeyboardButton,
-    ReplyKeyboardMarkup,
     Update,
 )
 from telegram.ext import (
@@ -47,7 +45,7 @@ def build_application(settings: Settings) -> Application:
     application.add_handler(CommandHandler("start", _on_start))
     application.add_handler(CommandHandler("help", handle_help))
 
-    # Stats menu — triggered by "Статистика" button
+    # Stats menu — triggered by "Статистика" text
     async def _stats_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Show stats menu with today/week options."""
         keyboard = [
@@ -100,7 +98,7 @@ def build_application(settings: Settings) -> Application:
         )
     )
 
-    # Error handler to catch unhandled exceptions
+    # Error handler
     async def _error_handler(update, context):
         logger.error("Unhandled error: %s", context.error, exc_info=context.error)
 
@@ -111,12 +109,10 @@ def build_application(settings: Settings) -> Application:
 
 async def _on_start(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /start command."""
-    keyboard = ReplyKeyboardMarkup([[KeyboardButton("Статистика")]], resize_keyboard=True)
     if isinstance(update, Update) and update.message:
         await update.message.reply_text(
             "Привет! Я помогу записывать сон и кормления ребёнка.\n\n"
-            "Отправьте команду или нажмите /help для справки.",
-            reply_markup=keyboard,
+            "Отправьте команду или нажмите /help для справки."
         )
 
 
